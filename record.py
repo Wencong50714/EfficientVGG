@@ -11,6 +11,7 @@ def visualize_output(dataset):
         # Model inference
         model.eval()
         with torch.inference_mode():
+            # No need to call cuda() on the model since it's already moved
             pred = model(image.unsqueeze(dim=0).cuda())
             pred = pred.argmax(dim=1)
 
@@ -26,7 +27,8 @@ def visualize_output(dataset):
         plt.imshow(image)
         plt.title(f"pred: {pred}" + "\n" + f"label: {label}")
         plt.axis("off")
-        plt.show()
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == '__main__':
     
@@ -36,6 +38,9 @@ if __name__ == '__main__':
         print("Please train the model first!")
         exit(1)
     model = VGG.load(path=model_path)
+    
+    # Move model to GPU
+    model = model.cuda()
 
     dataset, dataflow = prepare_data()
 
@@ -46,6 +51,13 @@ if __name__ == '__main__':
     
     with torch.inference_mode():
         for images, labels in dataflow["test"]:
+            # Print debug info only once
+            if total == 0:
+                print(f"Image tensor shape: {images.shape}")
+                print(f"Model weight shapes:")
+                for name, param in model.named_parameters():
+                    print(f"{name}: {param.shape}")
+
             images, labels = images.cuda(), labels.cuda()
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)

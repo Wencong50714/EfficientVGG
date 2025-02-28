@@ -73,7 +73,7 @@ class VGG(nn.Module):
   def load(cls, path="models/model.pth"):
     """Load a model from the given path."""
     model = cls()
-    model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(path, weights_only=True))
     return model
   
 def print_model_info(self, verbose=False) -> None:
