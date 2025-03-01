@@ -1,7 +1,12 @@
 import torch
 from vgg import *
 from matplotlib import pyplot as plt
-from data import *
+from data import prepare_data
+from utility import *
+from train import evaluate
+from prune import FineGrainedPruner, ChannelPruner
+import copy
+
 
 def visualize_output(dataset):
     plt.figure(figsize=(20, 10))
@@ -30,42 +35,43 @@ def visualize_output(dataset):
     plt.tight_layout()
     plt.show()
 
-if __name__ == '__main__':
-    
-    model_path = "models/model.pth"
-    if not os.path.exists(model_path):
-        print("Warning: Model file not found at", model_path)
-        print("Please train the model first!")
-        exit(1)
-    model = VGG.load(path=model_path)
-    
-    # Move model to GPU
-    model = model.cuda()
 
-    dataset, dataflow = prepare_data()
+def evaluate_and_print_metrics(model, dataloader, model_name, count_nonzero_only=False):
+    accuracy = evaluate(model, dataloader["test"])
+    model_size = get_model_size(model, count_nonzero_only=count_nonzero_only)
+    macs = get_model_macs(model, torch.randn(1, 3, 32, 32).cuda())
+    params = get_num_parameters(model)
+    latency = measure_latency(model, torch.randn(1, 3, 32, 32).cuda())
 
-    # Calculate and output model accuracy on test set
-    model.eval()
-    correct = 0
-    total = 0
-    
-    with torch.inference_mode():
-        for images, labels in dataflow["test"]:
-            # Print debug info only once
-            if total == 0:
-                print(f"Image tensor shape: {images.shape}")
-                print(f"Model weight shapes:")
-                for name, param in model.named_parameters():
-                    print(f"{name}: {param.shape}")
+    print(f"{model_name} ====================")
+    print(f"accuracy={accuracy:.2f}%")
+    print(f"Latency (CPU) ={latency * 1000:.2f} ms")
+    print(f"size={model_size / MiB:.2f} MiB")
+    print(f"MACs={macs / 1e6:.2f} M")
+    print(f"Params={params / 1e6:.2f} M")
+    print("====================\n")
 
-            images, labels = images.cuda(), labels.cuda()
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    
-    accuracy = 100 * correct / total
-    print(f"Test Accuracy: {accuracy:.2f}%")
-    
-    # Option: Visualize some predictions
-    # visualize_output(dataset)
+
+if __name__ == "__main__":
+    # ====== Base Model ======
+    model, dataloader = get_model_and_dataloader()
+
+    # Fine Grained Prune
+    fd_model = copy.deepcopy(model)
+    fg_pruner = FineGrainedPruner()
+    fg_pruner.prune(fd_model, dataloader)
+    fg_pruner.finetune(fd_model, dataloader)
+
+    # Channel Prune
+    channel_model = copy.deepcopy(model)
+    channel_pruner = ChannelPruner()
+    channel_pruner.prune(channel_model, 0.3)
+    channel_pruner.finetune(channel_model, dataloader)
+
+    evaluate_and_print_metrics(model, dataloader, "Raw model")
+    evaluate_and_print_metrics(
+        fd_model, dataloader, "Fine Grained Prune", count_nonzero_only=True
+    )
+    evaluate_and_print_metrics(
+        channel_model, dataloader, "Channel Prune", count_nonzero_only=True
+    )
