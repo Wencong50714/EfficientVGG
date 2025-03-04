@@ -50,8 +50,8 @@ k-means Quantization
 | --- | --- | --- | --- |
 | Accuracy | 90.70% | 89.29% | 0.98× |
 | Latency (CPU) | 2.41 ms | 1.84 ms | 1.31× |
-| Size | 100.47 MiB | 15.83 MiB | 6.35× |
-| MACs | 4047.37 M | 2040.97 M | 1.98× |
+| Size | 100.47 MiB | 15.83 MiB | **6.35×** |
+| MACs | 4047.37 M | 2040.97 M | **1.98×** |
 | Params | 26.34 M | 16.60 M | 1.59× |
 
 - EfficentVGG = SA fine grained prune + channel prune + 8-bit k-means quantinization
