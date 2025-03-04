@@ -4,6 +4,7 @@ from torchprofile import profile_macs
 from vgg import VGG
 import os
 from data import prepare_data
+from train import evaluate
 import time
 
 
@@ -81,6 +82,26 @@ def measure_latency(model, dummy_input, n_warmup=20, n_test=100):
         _ = model(dummy_input)
     t2 = time.time()
     return (t2 - t1) / n_test  # average latency
+
+
+def evaluate_and_print_metrics(model, dataloader, model_name, count_nonzero_only=False):
+    accuracy = evaluate(model, dataloader["test"])
+    model_size = get_model_size(model, count_nonzero_only=count_nonzero_only)
+
+    batch_size = 10
+    input_tensor = torch.randn(batch_size, 3, 32, 32).cuda()
+
+    macs = get_model_macs(model, input_tensor)
+    params = get_num_parameters(model)
+    latency = measure_latency(model, input_tensor)
+
+    print(f"{model_name} ====================")
+    print(f"accuracy={accuracy:.2f}%")
+    print(f"Latency (CPU) ={latency * 1000:.2f} ms")
+    print(f"size={model_size / MiB:.2f} MiB")
+    print(f"MACs={macs / 1e6:.2f} M")
+    print(f"Params={params / 1e6:.2f} M")
+    print("====================\n")
 
 
 Byte = 8

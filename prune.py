@@ -242,6 +242,7 @@ class FineGrainedPruner:
     def __init__(self):
         self.masks = {}
         self.best_accuracy = 0.0
+        self.average_sparsity = 0.0
 
     @torch.no_grad()
     def _apply(self, model):
@@ -269,10 +270,74 @@ class FineGrainedPruner:
         """
         print("================= Sensitivity Scan =================")
         sparsity_dict = generate_sparsity_dict_from_sensitivity(model, dataloader)
+        self.average_sparsity = (
+            sum(sparsity_dict.values()) / len(sparsity_dict) if sparsity_dict else 0.0
+        )
         masks = dict()
         for name, param in model.named_parameters():
             if param.dim() > 1:  # we only prune conv and fc weights
                 masks[name] = fine_grained_prune(param, sparsity_dict[name])
+
+        self.masks = masks
+        self._apply(model)
+
+    def finetune(self, model, dataloader, num_epochs=5):
+        """
+        Finetune the pruned model to recover accuracy
+
+        Args:
+            model: The pruned model to finetune
+            dataloader: Dictionary with 'train' and 'test' DataLoaders
+            num_epochs: Number of finetuning epochs
+
+        Returns:
+            Finetuned model and best accuracy achieved
+        """
+        optimizer = torch.optim.SGD(
+            model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, num_epochs)
+        criterion = nn.CrossEntropyLoss()
+
+        for epoch in range(num_epochs):
+            train(model, dataloader["train"], criterion, optimizer, scheduler)
+            self._apply(model)  # warning call back here !!!
+
+            accuracy = evaluate(model, dataloader["test"])
+            is_best = accuracy > self.best_accuracy
+            if is_best:
+                self.best_accuracy = accuracy
+            print(
+                f"Epoch {epoch + 1} Accuracy {accuracy:.2f}% / Best Accuracy: {self.best_accuracy:.2f}%"
+            )
+
+        return model, self.best_accuracy
+
+
+class UniformFineGrainedPruner:
+    def __init__(self, sparsity):
+        self.sparsity = sparsity
+        self.best_accuracy = 0.0
+        self.mask = {}
+
+    @torch.no_grad()
+    def _apply(self, model):
+        """
+        Apply stored pruning masks to model parameters
+
+        Args:
+            model: The neural network model to apply masks to
+        """
+        for name, param in model.named_parameters():
+            if name in self.masks:
+                param *= self.masks[name]
+
+    @torch.no_grad()
+    def prune(self, model, dataloader):
+        masks = dict()
+        for name, param in model.named_parameters():
+            if param.dim() > 1:  # we only prune conv and fc weights
+                masks[name] = fine_grained_prune(param, self.sparsity)
 
         self.masks = masks
         self._apply(model)
@@ -457,3 +522,52 @@ class ChannelPruner:
             )
 
         return model, self.best_accuracy
+
+
+if __name__ == "__main__":
+    # ====== Base Model ======
+    model, dataloader = get_model_and_dataloader()
+
+    # Fine Grained Prune
+    fg_path = "models/fg_model.pth"
+    if os.path.exists(fg_path):
+        fg_model = VGG.load(path=fg_path).cuda()
+    else:
+        fg_model = copy.deepcopy(model)
+        fg_pruner = FineGrainedPruner()
+        fg_pruner.prune(fg_model, dataloader)
+        fg_pruner.finetune(fg_model, dataloader)
+        fg_model.save(path=fg_path)
+
+    # Uniform Fine Grained Prune
+    ufg_path = "models/ufg_model.pth"
+    if os.path.exists(ufg_path):
+        ufg_model = VGG.load(path=ufg_path).cuda()
+    else:
+        average_sparsity = fg_pruner.average_sparsity
+        ufg_model = copy.deepcopy(model)
+        ufg_pruner = UniformFineGrainedPruner(average_sparsity)
+        ufg_pruner.prune(ufg_model, dataloader)
+        ufg_pruner.finetune(ufg_model, dataloader)
+        ufg_model.save(path=ufg_path)
+
+    channel_path = "models/channel_mode.pth"
+    if os.path.exists(channel_path):
+        channel_model = VGG.load(path=channel_path).cuda()
+    else:
+        # Channel Prune
+        channel_model = copy.deepcopy(model)
+        channel_pruner = ChannelPruner()
+        channel_pruner.prune(channel_model, 0.3)
+        channel_pruner.finetune(channel_model, dataloader)
+
+    evaluate_and_print_metrics(model, dataloader, "Raw model")
+    evaluate_and_print_metrics(
+        fg_model, dataloader, "Fine Grained Prune", count_nonzero_only=True
+    )
+    evaluate_and_print_metrics(
+        ufg_model, dataloader, "Uniform Fine Grained Prune", count_nonzero_only=True
+    )
+    evaluate_and_print_metrics(
+        channel_model, dataloader, "Channel Prune", count_nonzero_only=True
+    )
