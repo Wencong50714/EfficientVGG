@@ -84,9 +84,9 @@ def measure_latency(model, dummy_input, n_warmup=20, n_test=100):
     return (t2 - t1) / n_test  # average latency
 
 
-def evaluate_and_print_metrics(model, dataloader, model_name, count_nonzero_only=False):
+def evaluate_and_print_metrics(model, dataloader, model_name, bitwidth=32, count_nonzero_only=False):
     accuracy = evaluate(model, dataloader["test"])
-    model_size = get_model_size(model, count_nonzero_only=count_nonzero_only)
+    model_size = get_model_size(model, bitwidth, count_nonzero_only=count_nonzero_only)
 
     batch_size = 10
     input_tensor = torch.randn(batch_size, 3, 32, 32).cuda()
