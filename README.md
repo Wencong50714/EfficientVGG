@@ -40,7 +40,6 @@ Platform:
 | SA Fine Grained Prune | 90.82% | 3.20 ms | 15.91 MiB | 3984.39 M | 20.24 M |
 | Unifrom Fine Grained Prune | 90.47% | 3.17 ms | 19.36 MiB | 3984.39 M | 20.24 M |
 | Channel Prune (prune_ratio=0.3) | 89.50% | 3.41 ms | 39.29 MiB | 1978.00 M | 10.30 M |
-| Mix Prune | 89.47% | 3.51 ms | 39.29 MiB | 1978.00 M | 10.30 M |
 
 #### Linear Quantization
 
