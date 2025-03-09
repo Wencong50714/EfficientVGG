@@ -60,7 +60,9 @@ Platform:
 | MACs | 3984.39 M | 1978.00 M | 2.01 x |
 | Params | 20.24 M | 10.30 M | 1.96 x |
 
-- 注：model2 在计算 size 中没有计算值为 0 的权重元素
+- 注1：model2 在计算 size 中没有计算值为 0 的权重元素
+- 注2：线性量化实际计算时仍采用了 float32 类型，增加了类型转换的开销，导致 latency增加
+- TOOD: 将线性量化的计算部分，采用硬件 int8 计算库
 ## Reference
 
 My Code is modified from https://hanlab.mit.edu/courses/2024-fall-65940
