@@ -38,11 +38,20 @@ def get_num_parameters(model: nn.Module, count_nonzero_only=False) -> int:
     :param count_nonzero_only: only count nonzero weights
     """
     num_counted_elements = 0
-    for param in model.parameters():
-        if count_nonzero_only:
-            num_counted_elements += param.count_nonzero()
-        else:
-            num_counted_elements += param.numel()
+    for name, module in model.named_modules():
+        # Handle quantized modules
+        if hasattr(module, 'weight') and isinstance(module.weight, torch.Tensor):
+            weight = module.weight
+            if count_nonzero_only:
+                num_counted_elements += weight.count_nonzero()
+            else:
+                num_counted_elements += weight.numel()
+        if hasattr(module, 'bias') and isinstance(module.bias, torch.Tensor):
+            bias = module.bias
+            if count_nonzero_only:
+                num_counted_elements += bias.count_nonzero()
+            else:
+                num_counted_elements += bias.numel()
     return num_counted_elements
 
 
@@ -70,9 +79,9 @@ def get_model_and_dataloader(model_path="models/model.pth"):
 
 @torch.no_grad()
 def measure_latency(model, dummy_input, n_warmup=20, n_test=100):
-    model = model.to("cpu")
     model.eval()
     model = model.to("cuda")
+    dummy_input = dummy_input
     # warmup
     for _ in range(n_warmup):
         _ = model(dummy_input)
@@ -84,12 +93,16 @@ def measure_latency(model, dummy_input, n_warmup=20, n_test=100):
     return (t2 - t1) / n_test  # average latency
 
 
-def evaluate_and_print_metrics(model, dataloader, model_name, bitwidth=32, count_nonzero_only=False):
-    accuracy = evaluate(model, dataloader["test"])
+def evaluate_and_print_metrics(model, dataloader, model_name, bitwidth=32, count_nonzero_only=False, extra_preprocess=None):
+    accuracy = evaluate(model, dataloader["test"], extra_preprocess)
     model_size = get_model_size(model, bitwidth, count_nonzero_only=count_nonzero_only)
 
     batch_size = 10
     input_tensor = torch.randn(batch_size, 3, 32, 32).cuda()
+
+    if extra_preprocess is not None:
+        for preprocess in extra_preprocess:
+            input_tensor = preprocess(input_tensor)
 
     macs = get_model_macs(model, input_tensor)
     params = get_num_parameters(model)
@@ -97,7 +110,7 @@ def evaluate_and_print_metrics(model, dataloader, model_name, bitwidth=32, count
 
     print(f"{model_name} ====================")
     print(f"accuracy={accuracy:.2f}%")
-    print(f"Latency (CPU) ={latency * 1000:.2f} ms")
+    print(f"Latency ={latency * 1000:.2f} ms")
     print(f"size={model_size / MiB:.2f} MiB")
     print(f"MACs={macs / 1e6:.2f} M")
     print(f"Params={params / 1e6:.2f} M")

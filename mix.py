@@ -1,29 +1,28 @@
 from utility import *
 from prune import *
-from quantization import *
+from linear_quantization import *
 
 if __name__ == "__main__":
     model, dataloader = get_model_and_dataloader()
 
-    # Fine grained Prune
-    fg_path = "models/fg_model.pth"
-    if os.path.exists(fg_path):
-        fg_model = VGG.load(path=fg_path).cuda()
-
-    # Channel Prune
-    fgc_model = copy.deepcopy(fg_model)
+    # First Channel Prune
+    channel_model = copy.deepcopy(model)
     channel_pruner = ChannelPruner()
-    channel_pruner.prune(fgc_model, 0.3)
-    channel_pruner.finetune(fgc_model, dataloader)
-    modelname = "SA finegrained with channel prune"
-    evaluate_and_print_metrics(fgc_model, dataloader, modelname)
+    channel_pruner.prune(channel_model, 0.3)
+    channel_pruner.finetune(channel_model, dataloader)
 
-    # 8 bit quantiziation
+    # Then Fine Grained Prune
+    fg_model = copy.deepcopy(channel_model)
+    fg_pruner = FineGrainedPruner()
+    fg_pruner.prune(fg_model, dataloader)
+    fg_pruner.finetune(fg_model, dataloader)
+    evaluate_and_print_metrics(fg_model, dataloader, "Mixed Prune model", count_nonzero_only=True)
+
+    # Finally 8 bit linear quantiziation
     bitwidth = 8
-    model_cp = copy.deepcopy(fgc_model)
+    model_cp = copy.deepcopy(fg_model)
 
-    quantizer = KMeansQuantizer(model_cp, bitwidth)
-    quantizer.apply(model_cp, update_centroids=False)
-    quantizer.finetune(model_cp, dataloader)
-    modelname = f"{bitwidth}-bit k-means quantized model"
-    evaluate_and_print_metrics(model_cp, dataloader, modelname, bitwidth)
+    linear_qnt = LinearQuantizer(model_cp, dataloader, bitwidth=bitwidth)
+    quantized_model = linear_qnt.quantize()
+
+    evaluate_and_print_metrics(quantized_model, dataloader, "Mixed Prune & Qnt model", bitwidth=8, extra_preprocess=[extra_preprocess], count_nonzero_only=True)

@@ -60,24 +60,15 @@ class VGG(nn.Module):
                 add("pool", nn.MaxPool2d(2))
 
         self.backbone = nn.Sequential(OrderedDict(layers))
-
-        # Replace single linear layer with three fully connected layers
-        self.classifier = nn.Sequential(
-            nn.Linear(512, 4096),
-            nn.ReLU(True),
-            nn.Dropout(0.5),
-            nn.Linear(4096, 1024),
-            nn.ReLU(True),
-            nn.Dropout(0.5),
-            nn.Linear(1024, 10),
-        )
+        self.classifier = nn.Linear(512, 10)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # backbone: [N, 3, 32, 32] => [N, 512, 1, 1] (for 32x32 input)
         x = self.backbone(x)
 
         # avgpool: [N, 512, 1, 1] => [N, 512]
-        x = x.mean([2, 3])
+        # x = x.mean([2, 3])
+        x = x.view(x.shape[0], -1)
 
         # classifier: [N, 512] => [N, 10]
         x = self.classifier(x)

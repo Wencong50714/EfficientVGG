@@ -551,7 +551,7 @@ if __name__ == "__main__":
         ufg_pruner.finetune(ufg_model, dataloader)
         ufg_model.save(path=ufg_path)
 
-    channel_path = "models/channel_mode.pth"
+    channel_path = "models/channel_model.pth"
     if os.path.exists(channel_path):
         channel_model = VGG.load(path=channel_path).cuda()
     else:

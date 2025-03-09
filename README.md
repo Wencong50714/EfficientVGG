@@ -7,55 +7,60 @@ EfficientVGG/
 ├── train.py    # 模型训练脚本 
 ├── utility.py  # 模型信息统计工具
 ├── prune.py    # 模型剪枝
+├── linear_quantization.py # 线性量化
+├── mix.py      # 综合剪枝量化手段
 ```
 
 ## Usage
 
 ```bash
 
+pip install -r requiments.txt
+
 python train.py
+
+python prune.py
+
+python linear_quantization.py
+
+python mix.py
 
 ```
 
 ## Record
 
-#### Prune
-
 Platform: 
-- CPU: Intel(R) Xeon(R) Platinum 8255C CPU @ 2.50GHz
 - GPU: 2080 Ti
 
+#### Prune
 
 | Model Type | Accuracy | Latency (CPU) | Size | MACs | Params |
 | --- | --- | --- | --- | --- | --- |
-| Raw VGG19 | 90.70% | 2.41 ms | 100.47 MiB | 4047.37 M | 26.34 M |
-| SA Fine Grained Prune | 90.63% | 2.40 ms | 20.86 MiB | 4047.37 M | 26.34 M |
-| Unifrom Fine Grained Prune | 90.43 | 2.41 ms | 23.84 MiB | 4047.37 M | 26.34 M |
-| Channel Prune (prune_ratio=0.3) | 89.22% | 1.85 ms | 63.33 MiB | 2040.97 M | 16.60 M |
+| Raw VGG19 | 91.28% | 3.14 ms | 76.43 MiB | 3984.39 M | 20.24 M |
+| SA Fine Grained Prune | 90.82% | 3.20 ms | 15.91 MiB | 3984.39 M | 20.24 M |
+| Unifrom Fine Grained Prune | 90.47% | 3.17 ms | 19.36 MiB | 3984.39 M | 20.24 M |
+| Channel Prune (prune_ratio=0.3) | 89.50% | 3.41 ms | 39.29 MiB | 1978.00 M | 10.30 M |
+| Mix Prune | 89.47% | 3.51 ms | 39.29 MiB | 1978.00 M | 10.30 M |
 
-#### Quantization
-
-k-means Quantization
+#### Linear Quantization
 
 | Model Type | Accuracy | Latency (CPU) | Size | MACs | Params |
 | --- | --- | --- | --- | --- | --- |
-| Raw VGG19     | 90.70% | 2.41 ms | 100.47 MiB| 4047.37 M | 26.34 M |
-| 8-bit k-means | 91.16% | 2.33 ms | 25.12 MiB | 4047.37 M | 26.34 M |
-| 4-bit k-means | 89.59% | 2.41 ms | 12.56 MiB | 4047.37 M | 26.34 M |
-| 2-bit k-means | 70.79% | 2.44 ms | 6.28 MiB  | 4047.37 M | 26.34 M |
+| Raw VGG19 | 91.28% | 3.14 ms | 76.43 MiB | 3984.39 M | 20.24 M |
+| 8-bit Linear Qnt | 91.22% | 8.48 ms | 19.10 MiB | 3984.40 M | 20.23 M |
 
 #### mix
 
-| Metric | Raw VGG19 | Efficient VGG | Improvement |
+|  | model 1 | model 2 | Improvement |
 | --- | --- | --- | --- |
-| Accuracy | 90.70% | 89.29% | 0.98× |
-| Latency (CPU) | 2.41 ms | 1.84 ms | 1.31× |
-| Size | 100.47 MiB | 15.83 MiB | **6.35×** |
-| MACs | 4047.37 M | 2040.97 M | **1.98×** |
-| Params | 26.34 M | 16.60 M | 1.59× |
+| Model Type | Raw VGG19 | Mixed Prune & Qnt model | - |
+| Accuracy | 91.28% | 89.43% | - |
+| Latency (CPU) | 3.14 ms | 9.23 ms | ❌ |
+| Size | 76.43 MiB | 2.04 MiB | **37.5 x** |
+| MACs | 3984.39 M | 1978.00 M | 2.01 x |
+| Params | 20.24 M | 10.30 M | 1.96 x |
 
-- EfficentVGG = SA fine grained prune + channel prune + 8-bit k-means quantinization
-
+- 注：model2 在计算 size 中没有计算值为 0 的权重元素
 ## Reference
 
 My Code is modified from https://hanlab.mit.edu/courses/2024-fall-65940

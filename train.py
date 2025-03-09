@@ -54,7 +54,7 @@ def train(
 
 
 @torch.inference_mode()
-def evaluate(model: nn.Module, dataflow) -> float:
+def evaluate(model: nn.Module, dataflow, extra_preprocess = None) -> float:
     """Evaluate the model and return accuracy."""
     model.eval()
 
@@ -65,6 +65,10 @@ def evaluate(model: nn.Module, dataflow) -> float:
         # Move the data from CPU to GPU
         inputs = inputs.cuda()
         targets = targets.cuda()
+
+        if extra_preprocess is not None:
+            for preprocess in extra_preprocess:
+                inputs = preprocess(inputs)
 
         # Inference
         outputs = model(inputs)
