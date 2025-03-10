@@ -46,7 +46,9 @@ Platform:
 | Model Type | Accuracy | Latency (CPU) | Size | MACs | Params |
 | --- | --- | --- | --- | --- | --- |
 | Raw VGG19 | 91.28% | 3.14 ms | 76.43 MiB | 3984.39 M | 20.24 M |
-| 8-bit Linear Qnt | 91.22% | 8.48 ms | 19.10 MiB | 3984.40 M | 20.23 M |
+| 8-bit Linear Qnt V1 | 91.22% | 8.48 ms | 19.10 MiB | 3984.40 M | 20.23 M |
+| 8-bit Linear Qnt V2| -- | 7.96 ms | -- | -- | -- | -- |
+| 8-bit Linear Qnt V3| -- | 1245.90 ms | -- | -- | -- | -- |
 
 #### mix
 
