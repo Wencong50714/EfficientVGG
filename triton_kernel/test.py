@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.abspath('.'))  # Add current directory
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,6 +36,7 @@ def test_matmul_forward():
     print(f"Forward max difference: {max_diff}")
     print(f"Forward results match: {torch.allclose(pytorch_output, triton_output, rtol=1e-3, atol=1e-3)}")
 
+
 def test_conv2d_forward():
     # Create small tensors for testing
     batch_size, in_channels, height, width = 2, 3, 8, 8
@@ -40,9 +45,9 @@ def test_conv2d_forward():
     
     # Create random input and weights
     input_int8 = torch.randint(-128, 127, (batch_size, in_channels, height, width), 
-                              dtype=torch.int8, device='cuda')
+                              dtype=torch.int32, device='cuda')
     weight_int8 = torch.randint(-128, 127, (out_channels, in_channels, kernel_size, kernel_size), 
-                               dtype=torch.int8, device='cuda')
+                               dtype=torch.int32, device='cuda')
     bias_int32 = torch.randint(-1000, 1000, (out_channels,), 
                               dtype=torch.int32, device='cuda')
     

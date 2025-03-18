@@ -1,6 +1,7 @@
 import torch
 import triton
 import triton.language as tl
+import torch.nn.functional as F
 
 @triton.jit
 def _conv2d_int8_kernel(
@@ -29,7 +30,9 @@ def _conv2d_int8_kernel(
     w_in_start = w_out * stride - padding
     
     # Initialize accumulator
-    acc = 0 if bias_ptr is None else tl.load(bias_ptr + oc)
+    acc = 0
+    if bias_ptr is not None:
+        acc = tl.load(bias_ptr + oc).to(tl.int32)
     
     # Iterate over input channels and kernel dimensions
     for ic in range(in_channels):
@@ -69,7 +72,7 @@ def triton_conv2d_int8(input_tensor, weight_tensor, bias_tensor=None,
         output tensor of shape (N, K, H', W') with dtype int32
     """
     assert input_tensor.is_cuda and weight_tensor.is_cuda
-    assert input_tensor.dtype == torch.int8 and weight_tensor.dtype == torch.int8
+    # assert input_tensor.dtype == torch.int8 and weight_tensor.dtype == torch.int8
     if bias_tensor is not None:
         assert bias_tensor.is_cuda and bias_tensor.dtype == torch.int32
     
@@ -99,3 +102,37 @@ def triton_conv2d_int8(input_tensor, weight_tensor, bias_tensor=None,
     )
     
     return output
+
+# Example Usage and Testing
+if __name__ == '__main__':
+    # Example usage and testing
+    device = 'cuda'
+    N, C, H, W = 1, 3, 32, 32
+    K, R, S = 8, 3, 3
+    stride = (2, 2)
+    padding = (1, 1)
+
+    input_tensor = torch.randint(-128, 127, (N, C, H, W), dtype=torch.int32, device=device)
+    weight_tensor = torch.randint(-128, 127, (K, C, R, S), dtype=torch.int32, device=device)
+    bias_tensor = torch.randint(-100, 100, (K,), dtype=torch.int32, device=device)
+
+    # PyTorch's conv2d needs float input, convert int8 to float32
+    input_float = input_tensor.float()
+    weight_float = weight_tensor.float()
+
+    output_torch = F.conv2d(input_float, weight_float, bias_tensor.float(), stride=stride, padding=padding).int()  # Convert to int after conv
+
+    output_triton = triton_conv2d_int8(input_tensor, weight_tensor, bias_tensor, stride=stride, padding=padding)
+
+
+    # Compare the results
+    print("Max diff:", torch.max(torch.abs(output_torch - output_triton)))
+    print("Mean diff:", torch.mean(torch.abs(output_torch - output_triton).float()))  # Convert to float for accurate mean calculation
+    print("Triton Output:\n", output_triton)
+    print("Pytorch Output:\n", output_torch)
+
+
+    #Check if they match closely (within a tolerance)
+    tolerance = 1e-5
+    all_close = torch.allclose(output_torch.float(), output_triton.float(), rtol=tolerance, atol=tolerance)
+    print("All close:", all_close)

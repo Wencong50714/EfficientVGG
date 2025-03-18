@@ -193,8 +193,8 @@ def quantized_linear(input, weight, bias, feature_bitwidth, weight_bitwidth,
         output = torch.nn.functional.linear(input.to(torch.int32), weight.to(torch.int32), bias)
     else:
         # current version pytorch does not yet support integer-based linear() on GPUs
-        # output = torch.nn.functional.linear(input.float(), weight.float(), bias.float())
-        output = triton_linear_int8(input, weight, bias)
+        output = torch.nn.functional.linear(input.float(), weight.float(), bias.float())
+        # output = triton_linear_int8(input, weight, bias)
 
     # Step 2: scale the output
     #         hint: 1. scales are floating numbers, we need to convert output to float as well
@@ -263,8 +263,8 @@ def quantized_conv2d(input, weight, bias, feature_bitwidth, weight_bitwidth,
         output = torch.nn.functional.conv2d(input.to(torch.int32), weight.to(torch.int32), None, stride, 0, dilation, groups)
     else:
         # current version pytorch does not yet support integer-based conv2d() on GPUs
-        output = triton_conv2d_int8(input, weight, None)
-        # output = torch.nn.functional.conv2d(input.float(), weight.float(), None, stride, 0, dilation, groups)
+        # output = triton_conv2d_int8(input, weight, None)
+        output = torch.nn.functional.conv2d(input.float(), weight.float(), None, stride, 0, dilation, groups)
         output = output.round().to(torch.int32)
     if bias is not None:
         output = output + bias.view(1, -1, 1, 1)
@@ -538,7 +538,7 @@ def extra_preprocess(x):
 if __name__ == "__main__":
     model, dataloader = get_model_and_dataloader()
 
-    # evaluate_and_print_metrics(model, dataloader, "Raw model")
+    # evaluate_and_print_metrics(model, dataloader, "Raw model", count_nonzero_only=True)
 
     # ========== Linar qauntize ==========
     linear_qnt = LinearQuantizer(model, dataloader, bitwidth=8)
