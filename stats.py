@@ -17,7 +17,7 @@ def count_lines(file_path):
     return sorted_counts
 
 if __name__ == "__main__":
-    file_path = "/root/autodl-tmp/EfficientVGG/a.txt"
+    file_path = "./a.txt"
     counts = count_lines(file_path)
     
     # 打印结果

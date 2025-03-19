@@ -6,6 +6,7 @@ from train import evaluate
 from utility import get_model_and_dataloader, evaluate_and_print_metrics, measure_latency
 from triton_kernel.int8_matmul import triton_linear_int8
 from triton_kernel.conv2d import triton_conv2d_int8
+from triton_kernel.conv2d_op import conv2d_triton
 
 def get_quantized_range(bitwidth):
     """
@@ -263,7 +264,8 @@ def quantized_conv2d(input, weight, bias, feature_bitwidth, weight_bitwidth,
         output = torch.nn.functional.conv2d(input.to(torch.int32), weight.to(torch.int32), None, stride, 0, dilation, groups)
     else:
         # current version pytorch does not yet support integer-based conv2d() on GPUs
-        output = triton_conv2d_int8(input, weight, None)
+        # output = triton_conv2d_int8(input, weight, None)
+        output = conv2d_triton(input, weight, None)
         # print(f"input: {input.shape} weight {weight.shape}")
         # output = torch.nn.functional.conv2d(input.float(), weight.float(), None, stride, 0, dilation, groups)
         # output = output.round().to(torch.int32)
